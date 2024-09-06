@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カレンダーアプリ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 0;
+        }
+
+        #calendar {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+            border-collapse: collapse;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            background-color: #fff;
+        }
+
+        #calendar caption {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .arrow {
+            cursor: pointer;
+            font-size: 24px;
+        }
+
+        #calendar th, #calendar td {
+            width: 14.28%;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #ddd;
+        }
+
+        #calendar td {
+            height: 80px;
+            vertical-align: top;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            width: 300px;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: block;
+        }
+
+        .modal select, .modal input, .modal textarea {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+
+        .modal textarea {
+            height: 60px; /* 3行程度に設定 */
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 999;
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        /* カレンダーの色変更 */
+        .meat { background-color: red; color: white; }
+        .fish { background-color: blue; color: white; }
+        .noodles { background-color: yellow; color: black; }
+        .other { background-color: green; color: white; }
+        .curry { background-color: orange; color: white; }
+        .eatingout { background-color: pink; color: white; }
+
+        /* 見た目をおしゃれに */
+        body img {
+            width: 50px;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+        }
+
+        #menuList {
+            width: 90%;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 10px;
+            background-color: #fff;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #menuList h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        #menuList .menu-item {
+            margin-bottom: 10px;
+        }
+
+        @media (max-width: 600px) {
+            #calendar td {
+                height: 60px;
+            }
+
+            .modal {
+                width: 90%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 小さい画像 -->
+    <img src="icon.png" alt="ロゴ">
+
+    <!-- カレンダー -->
+    <table id="calendar">
+        <caption>
+            <span class="arrow" id="prevMonth">&larr;</span>
+            <span id="monthYear"></span>
+            <span class="arrow" id="nextMonth">&rarr;</span>
+        </caption>
+        <thead>
+            <tr>
+                <th>日</th>
+                <th>月</th>
+                <th>火</th>
+                <th>水</th>
+                <th>木</th>
+                <th>金</th>
+                <th>土</th>
+            </tr>
+        </thead>
+        <tbody id="calendarBody"></tbody>
+    </table>
+
+    <!-- メモ入力用モーダル -->
+    <div class="modal" id="modal">
+        <select id="genre">
+            <option value="">ジャンルを選択</option>
+            <option value="meat">肉</option>
+            <option value="fish">魚</option>
+            <option value="noodles">麺</option>
+            <option value="curry">カレー</option>
+            <option value="eatingout">外食</option>
+            <option value="other">その他</option>
+        </select>
+        <textarea id="menu" placeholder="献立を入力"></textarea>
+        <textarea id="memo" rows="4" placeholder="メモ"></textarea>
+        <button id="save">保存</button>
+    </div>
+
+    <!-- モーダル背景 -->
+    <div class="overlay" id="overlay"></div>
+
+    <!-- 月ごとの献立リスト -->
+    <div id="menuList">
+        <h3>その月の献立一覧</h3>
+        <div id="menuItems"></div>
+    </div>
+
+    <script>
+        const calendarBody = document.getElementById('calendarBody');
+        const monthYear = document.getElementById('monthYear');
+        const modal = document.getElementById('modal');
+        const overlay = document.getElementById('overlay');
+        const saveButton = document.getElementById('save');
+        const prevMonthButton = document.getElementById('prevMonth');
+        const nextMonthButton = document.getElementById('nextMonth');
+        const menuItemsDiv = document.getElementById('menuItems');
+        let currentMonth, currentYear;
+        let selectedDate;
+
+        // 現在の日付を取得
+        const today = new Date();
+        currentMonth = today.getMonth();
+        currentYear = today.getFullYear();
+
+        // カレンダーの描画
+        function renderCalendar(month, year) {
+            calendarBody.innerHTML = ''; // カレンダーをリセット
+            monthYear.textContent = `${year}年 ${month + 1}月`; // 年月を表示
+
+            const firstDay = new Date(year, month).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            let date = 1;
+
+            // カレンダーの行を作成
+            for (let i = 0; i < 6; i++) {
+                const row = document.createElement('tr');
+
+                for (let j = 0; j < 7; j++) {
+                    const cell = document.createElement('td');
+
+                    if (i === 0 && j < firstDay) {
+                        cell.innerHTML = ''; // 空のセル
+                    } else if (date > daysInMonth) {
+                        break;
+                    } else {
+                        const currentDateKey = `${year}-${month + 1}-${date}`;
+                        cell.innerHTML = date;
+                        cell.addEventListener('click', () => openModal(currentDateKey));
+
+                        // ローカルストレージから保存されたデータを取得
+                        const savedData = localStorage.getItem(currentDateKey);
+                        if (savedData) {
+                            const { genre } = JSON.parse(savedData);
+                            if (genre) {
+                                cell.classList.add(genre); // ジャンルに応じて色を適用
+                            }
+                        }
+
+                        row.appendChild(cell);
+                        date++;
+                    }
+                }
+
+                calendarBody.appendChild(row);
+            }
+
+            // 献立リストを表示
+            displayMenuList(month, year);
+        }
+
+        // モーダルを開く
+        function openModal(dateKey) {
+            selectedDate = dateKey;
+            const savedData = JSON.parse(localStorage.getItem(selectedDate) || '{}');
+
+            document.getElementById('genre').value = savedData.genre || '';
+            document.getElementById('menu').value = savedData.menu || '';
+            document.getElementById('memo').value = savedData.memo || '';
+
+            modal.classList.add('active');
+            overlay.classList.add('active');
+        }
+
+        // モーダルを閉じる
+        function closeModal() {
+            modal.classList.remove('active');
+            overlay.classList.remove('active');
+        }
+
+        overlay.addEventListener('click', closeModal);
+
+        // 保存ボタンの処理
+        saveButton.addEventListener('click', () => {
+            const genre = document.getElementById('genre').value;
+            const menu = document.getElementById('menu').value;
+            const memo = document.getElementById('memo').value;
+
+            // ローカルストレージにデータを保存
+            localStorage.setItem(selectedDate, JSON.stringify({ genre, menu, memo }));
+
+            renderCalendar(currentMonth, currentYear); // カレンダーを再描画して色を更新
+            closeModal();
+        });
+
+        // 前月に移動
+        prevMonthButton.addEventListener('click', () => {
+            currentMonth--;
+            if (currentMonth < 0) {
+                currentMonth = 11;
+                currentYear--;
+            }
+            renderCalendar(currentMonth, currentYear);
+        });
+
+        // 来月に移動
+        nextMonthButton.addEventListener('click', () => {
+            currentMonth++;
+            if (currentMonth > 11) {
+                currentMonth = 0;
+                currentYear++;
+            }
+            renderCalendar(currentMonth, currentYear);
+        });
+
+        // 献立リストを表示
+        function displayMenuList(month, year) {
+            menuItemsDiv.innerHTML = ''; // リストをクリア
+            let hasMenu = false;
+
+            for (let day = 1; day <= new Date(year, month + 1, 0).getDate(); day++) {
+                const currentDateKey = `${year}-${month + 1}-${day}`;
+                const savedData = JSON.parse(localStorage.getItem(currentDateKey) || '{}');
+
+                if (savedData.menu) {
+                    hasMenu = true;
+                    const menuItem = document.createElement('div');
+                    menuItem.classList.add('menu-item');
+                    menuItem.innerHTML = `<strong>${month + 1}月${day}日</strong><br>${savedData.menu.replace(/\n/g, '<br>')}`;
+                    menuItemsDiv.appendChild(menuItem);
+                }
+            }
+
+            // 献立がない場合
+            if (!hasMenu) {
+                const noMenuItem = document.createElement('div');
+                noMenuItem.classList.add('menu-item');
+                noMenuItem.innerHTML = '入力された献立はありません。';
+                menuItemsDiv.appendChild(noMenuItem);
+            }
+        }
+
+        // 初期表示
+        renderCalendar(currentMonth, currentYear);
+    </script>
+</body>
+</html>
