@@ -22,14 +22,13 @@
         }
 
         #calendar caption {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 18px;
+            text-align: center;
+            font-size: 20px;
             font-weight: bold;
             padding: 10px;
             background-color: #4CAF50;
             color: white;
+            white-space: nowrap; /* 改行防止 */
         }
 
         .arrow {
@@ -38,7 +37,7 @@
         }
 
         #calendar th, #calendar td {
-            width: 14.28%;
+            width: 14.28%; /* 各曜日の幅を統一 */
             padding: 10px;
             text-align: center;
             border: 1px solid #ddd;
@@ -49,6 +48,11 @@
             vertical-align: top;
             cursor: pointer;
             position: relative;
+        }
+
+        .today {
+            font-weight: bold;
+            background-color: #f0e68c; /* 今日を視覚的に強調 */
         }
 
         .modal {
@@ -146,11 +150,6 @@
 
     <!-- カレンダー -->
     <table id="calendar">
-        <caption>
-            <span class="arrow" id="prevMonth">&larr;</span>
-            <span id="monthYear"></span>
-            <span class="arrow" id="nextMonth">&rarr;</span>
-        </caption>
         <thead>
             <tr>
                 <th>日</th>
@@ -162,6 +161,11 @@
                 <th>土</th>
             </tr>
         </thead>
+        <caption>
+            <span class="arrow" id="prevMonth">&larr;</span>
+            <span id="monthYear"></span>
+            <span class="arrow" id="nextMonth">&rarr;</span>
+        </caption>
         <tbody id="calendarBody"></tbody>
     </table>
 
@@ -186,7 +190,7 @@
 
     <!-- 月ごとの献立リスト -->
     <div id="menuList">
-        <h3>その月の献立一覧</h3>
+        <h3 id="menuListTitle"></h3>
         <div id="menuItems"></div>
     </div>
 
@@ -199,13 +203,17 @@
         const prevMonthButton = document.getElementById('prevMonth');
         const nextMonthButton = document.getElementById('nextMonth');
         const menuItemsDiv = document.getElementById('menuItems');
+        const menuListTitle = document.getElementById('menuListTitle');
         let currentMonth, currentYear;
         let selectedDate;
 
         // 現在の日付を取得
         const today = new Date();
-        currentMonth = today.getMonth();
-        currentYear = today.getFullYear();
+        const todayDate = today.getDate();
+        const todayMonth = today.getMonth();
+        const todayYear = today.getFullYear();
+        currentMonth = todayMonth;
+        currentYear = todayYear;
 
         // カレンダーの描画
         function renderCalendar(month, year) {
@@ -232,6 +240,11 @@
                         const currentDateKey = `${year}-${month + 1}-${date}`;
                         cell.innerHTML = date;
                         cell.addEventListener('click', () => openModal(currentDateKey));
+
+                        // 今日の日付を太字にする
+                        if (date === todayDate && month === todayMonth && year === todayYear) {
+                            cell.classList.add('today');
+                        }
 
                         // ローカルストレージから保存されたデータを取得
                         const savedData = localStorage.getItem(currentDateKey);
@@ -312,6 +325,7 @@
         function displayMenuList(month, year) {
             menuItemsDiv.innerHTML = ''; // リストをクリア
             let hasMenu = false;
+            menuListTitle.textContent = `${year}年 ${month + 1}月の献立一覧`; // タイトルを修正
 
             for (let day = 1; day <= new Date(year, month + 1, 0).getDate(); day++) {
                 const currentDateKey = `${year}-${month + 1}-${day}`;
