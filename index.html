@@ -239,6 +239,17 @@
                     } else {
                         const currentDateKey = `${year}-${month + 1}-${date}`;
                         cell.innerHTML = date;
+
+                        // セルにジャンルの色を適用
+                        const storedData = localStorage.getItem(currentDateKey);
+                        if (storedData) {
+                            const parsedData = JSON.parse(storedData);
+                            const genre = parsedData.genre || '';
+                            if (genre) {
+                                cell.classList.add(genre);
+                            }
+                        }
+
                         cell.addEventListener('click', () => openModal(currentDateKey));
 
                         // 今日の日付を太字にする
@@ -246,62 +257,62 @@
                             cell.classList.add('today');
                         }
 
-                        // ローカルストレージから保存されたデータを取得
-                        const savedData = localStorage.getItem(currentDateKey);
-                        if (savedData) {
-                            const { genre } = JSON.parse(savedData);
-                            if (genre) {
-                                cell.classList.add(genre); // ジャンルに応じて色を適用
-                            }
-                        }
-
-                        row.appendChild(cell);
                         date++;
                     }
+                    row.appendChild(cell);
                 }
 
                 calendarBody.appendChild(row);
             }
 
-            // 献立リストを表示
-            displayMenuList(month, year);
+            // 月の献立リストを表示
+            displayMonthlyMenuList(month, year);
         }
 
-        // モーダルを開く
         function openModal(dateKey) {
             selectedDate = dateKey;
-            const savedData = JSON.parse(localStorage.getItem(selectedDate) || '{}');
-
-            document.getElementById('genre').value = savedData.genre || '';
-            document.getElementById('menu').value = savedData.menu || '';
-            document.getElementById('memo').value = savedData.memo || '';
-
             modal.classList.add('active');
             overlay.classList.add('active');
+
+            // 既存のデータを読み込む
+            const storedData = localStorage.getItem(dateKey);
+            if (storedData) {
+                const parsedData = JSON.parse(storedData);
+                document.getElementById('menu').value = parsedData.menu || '';
+                document.getElementById('memo').value = parsedData.memo || '';
+                document.getElementById('genre').value = parsedData.genre || '';
+            } else {
+                document.getElementById('menu').value = '';
+                document.getElementById('memo').value = '';
+                document.getElementById('genre').value = '';
+            }
         }
 
-        // モーダルを閉じる
-        function closeModal() {
+        overlay.addEventListener('click', () => {
             modal.classList.remove('active');
             overlay.classList.remove('active');
-        }
-
-        overlay.addEventListener('click', closeModal);
-
-        // 保存ボタンの処理
-        saveButton.addEventListener('click', () => {
-            const genre = document.getElementById('genre').value;
-            const menu = document.getElementById('menu').value;
-            const memo = document.getElementById('memo').value;
-
-            // ローカルストレージにデータを保存
-            localStorage.setItem(selectedDate, JSON.stringify({ genre, menu, memo }));
-
-            renderCalendar(currentMonth, currentYear); // カレンダーを再描画して色を更新
-            closeModal();
         });
 
-        // 前月に移動
+        saveButton.addEventListener('click', () => {
+            const menu = document.getElementById('menu').value;
+            const memo = document.getElementById('memo').value;
+            const genre = document.getElementById('genre').value;
+
+            // データをローカルストレージに保存
+            const data = {
+                menu: menu,
+                memo: memo,
+                genre: genre
+            };
+            localStorage.setItem(selectedDate, JSON.stringify(data));
+
+            modal.classList.remove('active');
+            overlay.classList.remove('active');
+
+            // カレンダーを再描画
+            renderCalendar(currentMonth, currentYear);
+        });
+
         prevMonthButton.addEventListener('click', () => {
             currentMonth--;
             if (currentMonth < 0) {
@@ -311,7 +322,6 @@
             renderCalendar(currentMonth, currentYear);
         });
 
-        // 来月に移動
         nextMonthButton.addEventListener('click', () => {
             currentMonth++;
             if (currentMonth > 11) {
@@ -321,35 +331,30 @@
             renderCalendar(currentMonth, currentYear);
         });
 
-        // 献立リストを表示
-        function displayMenuList(month, year) {
-            menuItemsDiv.innerHTML = ''; // リストをクリア
-            let hasMenu = false;
-            menuListTitle.textContent = `${year}年 ${month + 1}月の献立一覧`; // タイトルを修正
+        // 月ごとの献立リストを表示する関数
+        function displayMonthlyMenuList(month, year) {
+            menuItemsDiv.innerHTML = ''; // 既存のリストをリセット
+            menuListTitle.textContent = `${year}年 ${month + 1}月の献立`;
 
-            for (let day = 1; day <= new Date(year, month + 1, 0).getDate(); day++) {
-                const currentDateKey = `${year}-${month + 1}-${day}`;
-                const savedData = JSON.parse(localStorage.getItem(currentDateKey) || '{}');
+            for (let day = 1; day <= 31; day++) {
+                const dateKey = `${year}-${month + 1}-${day}`;
+                const storedData = localStorage.getItem(dateKey);
 
-                if (savedData.menu) {
-                    hasMenu = true;
-                    const menuItem = document.createElement('div');
-                    menuItem.classList.add('menu-item');
-                    menuItem.innerHTML = `<strong>${month + 1}月${day}日</strong><br>${savedData.menu.replace(/\n/g, '<br>')}`;
-                    menuItemsDiv.appendChild(menuItem);
+                if (storedData) {
+                    const parsedData = JSON.parse(storedData);
+                    const menu = parsedData.menu || '';
+
+                    if (menu) {
+                        const menuItemDiv = document.createElement('div');
+                        menuItemDiv.classList.add('menu-item');
+                        menuItemDiv.textContent = `${day}日: ${menu}`;
+                        menuItemsDiv.appendChild(menuItemDiv);
+                    }
                 }
-            }
-
-            // 献立がない場合
-            if (!hasMenu) {
-                const noMenuItem = document.createElement('div');
-                noMenuItem.classList.add('menu-item');
-                noMenuItem.innerHTML = '入力された献立はありません。';
-                menuItemsDiv.appendChild(noMenuItem);
             }
         }
 
-        // 初期表示
+        // 初回描画
         renderCalendar(currentMonth, currentYear);
     </script>
 </body>
